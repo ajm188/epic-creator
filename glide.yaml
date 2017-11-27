@@ -1,0 +1,6 @@
+package: github.com/ajm188/epic-creator
+import:
+- package: gopkg.in/alecthomas/kingpin.v2
+  version: ^2.2.5
+- package: gopkg.in/andygrunwald/go-jira.v1
+  version: ^1.0.0
