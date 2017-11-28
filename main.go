@@ -12,6 +12,7 @@ import (
 )
 
 import (
+	"github.com/trivago/tgo/tcontainer"
 	"gopkg.in/alecthomas/kingpin.v2"
 	jira "gopkg.in/andygrunwald/go-jira.v1"
 )
@@ -48,6 +49,7 @@ func jiraAPIRequestErrorHandler(resp *jira.Response, err error) error {
 type Ticket struct {
 	Project string
 	Params  map[string]interface{}
+	CustomEpicField string `json:"custom_epic_field,omitempty"`
 }
 
 func loadTickets(ticketsFilePath string) ([]Ticket, error) {
@@ -111,14 +113,20 @@ func createIssues(
 		}
 
 		// create issue struct
-		issue := jira.Issue{
-			Fields: &jira.IssueFields{
-				Summary:     summaryBuf.String(),
-				Description: descriptionBuf.String(),
-				Type: issueType,
-				Project: *project,
-			},
+		fields := jira.IssueFields{
+			Summary:     summaryBuf.String(),
+			Description: descriptionBuf.String(),
+			Type: issueType,
+			Project: *project,
 		}
+		if ticket.CustomEpicField != "" {
+			fields.Unknowns = tcontainer.MarshalMap{
+				ticket.CustomEpicField: epic.Key,
+			}
+		} else {
+			fields.Epic = epic
+		}
+		issue := jira.Issue{Fields: &fields}
 
 		// make request
 		createdIssue, resp, err := client.Issue.Create(&issue)
