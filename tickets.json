@@ -1,0 +1,14 @@
+[
+    {
+        "project": "MY_FIRST_PROJECT",
+        "params": {
+            "foo": "bar"
+        }
+    },
+    {
+        "project": "A_DIFFERENT_PROJECT",
+        "params": {
+            "baz": "qux"
+        }
+    }
+]
