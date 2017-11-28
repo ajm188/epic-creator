@@ -47,8 +47,8 @@ func jiraAPIRequestErrorHandler(resp *jira.Response, err error) error {
 }
 
 type Ticket struct {
-	Project string
-	Params  map[string]interface{}
+	Project         string
+	Params          map[string]interface{}
 	CustomEpicField string `json:"custom_epic_field,omitempty"`
 }
 
@@ -116,8 +116,8 @@ func createIssues(
 		fields := jira.IssueFields{
 			Summary:     summaryBuf.String(),
 			Description: descriptionBuf.String(),
-			Type: issueType,
-			Project: *project,
+			Type:        issueType,
+			Project:     *project,
 		}
 		if ticket.CustomEpicField != "" {
 			fields.Unknowns = tcontainer.MarshalMap{
@@ -164,9 +164,9 @@ func getEpic(client *jira.Client, epicName string) (*jira.Epic, error) {
 	}
 
 	epic := &jira.Epic{
-		ID: id,
+		ID:   id,
 		Self: issue.Self,
-		Key: issue.Key,
+		Key:  issue.Key,
 	}
 	return epic, nil
 }
