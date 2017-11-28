@@ -2,10 +2,10 @@ This is an example description.
 
 You need to provide any params that your description may need in the JSON file
 used to load the tickets. These will be available via the
-{{ `\\{\\{ .Params \\}\\}` }} field in the template. Each param can then be
+{{ `{{ {{.Params}} }}` }} field in the template. Each param can then be
 accessed like so:
 
-{{ `\\{\\{ index .Params "my-param" \\}\\}` }}
+{{ `{noformat}{{ index .Params "my-param" }}{noformat}` }}
 
 All JIRA markup options are _available_, but note that since some JIRA
 formatting relies on the {{ "\\{" }} and {{ "\\}" }} characters, which are
