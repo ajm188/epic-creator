@@ -37,6 +37,14 @@ const (
 `
 )
 
+func jiraAPIRequestErrorHandler(resp *jira.Response, err error) error {
+	fmt.Fprintf(os.Stderr, "Request: %v\n", resp.Response.Request)
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Fprintf(os.Stderr, "Response body: %s\n", body)
+	return err
+}
+
 type Ticket struct {
 	Project string
 	Params  map[string]interface{}
@@ -66,7 +74,31 @@ func createIssues(
 ) error {
 	summaryBuf := bytes.NewBufferString("")
 	descriptionBuf := bytes.NewBufferString("")
+
+	projectCache := make(map[string]*jira.Project, 0)
 	for _, ticket := range tickets {
+		summaryBuf.Reset()
+		descriptionBuf.Reset()
+
+		_, ok := projectCache[ticket.Project]
+		if !ok {
+			project, resp, err := client.Project.Get(ticket.Project)
+			if err != nil {
+				return jiraAPIRequestErrorHandler(resp, err)
+			}
+			projectCache[ticket.Project] = project
+		}
+		project, _ := projectCache[ticket.Project]
+		if len(project.IssueTypes) == 0 {
+			fmt.Fprint(
+				os.Stderr,
+				"No issue types found for project %s - Skipping creating %v\n",
+				ticket.Project,
+				ticket,
+			)
+		}
+		issueType := project.IssueTypes[0]
+
 		ticket.Params["epic"] = epic.Key
 		// write template into buf
 		err := summaryTemplate.Execute(summaryBuf, ticket)
@@ -83,26 +115,21 @@ func createIssues(
 			Fields: &jira.IssueFields{
 				Summary:     summaryBuf.String(),
 				Description: descriptionBuf.String(),
-				Project: jira.Project{
-					Name: ticket.Project,
-				},
-				Epic: epic,
+				Type: issueType,
+				Project: *project,
 			},
 		}
 
-		/*
 		// make request
 		createdIssue, resp, err := client.Issue.Create(&issue)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", resp.Response.Request)
-			return err
+			return jiraAPIRequestErrorHandler(resp, err)
 		}
-		fmt.Printf("Created: %v\n", createdIssue)
-		*/
-		fmt.Println(*issue.Fields)
-
-		summaryBuf.Reset()
-		descriptionBuf.Reset()
+		fmt.Printf(
+			"Created: %v\nIssue Fields: %v\n",
+			*createdIssue,
+			createdIssue.Fields,
+		)
 	}
 	return nil
 }
@@ -116,8 +143,7 @@ func getEpic(client *jira.Client, epicName string) (*jira.Epic, error) {
 	)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", *resp.Response.Request)
-		return nil, err
+		return nil, jiraAPIRequestErrorHandler(resp, err)
 	}
 
 	if issue.Fields.Type.Name != "Epic" {
