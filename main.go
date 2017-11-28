@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"text/template"
 )
 
@@ -106,9 +107,9 @@ func createIssues(
 	return nil
 }
 
-func ensureEpicExists(client *jira.Client, epic string) (bool, error) {
+func getEpic(client *jira.Client, epicName string) (*jira.Epic, error) {
 	issue, resp, err := client.Issue.Get(
-		epic,
+		epicName,
 		&jira.GetQueryOptions{
 			Fields: "issuetype",
 		},
@@ -116,10 +117,24 @@ func ensureEpicExists(client *jira.Client, epic string) (bool, error) {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", *resp.Response.Request)
-		return false, err
+		return nil, err
 	}
 
-	return issue.Fields.Type.Name == "Epic", nil
+	if issue.Fields.Type.Name != "Epic" {
+		return nil, err
+	}
+
+	id, err := strconv.Atoi(issue.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	epic := &jira.Epic{
+		ID: id,
+		Self: issue.Self,
+		Key: issue.Key,
+	}
+	return epic, nil
 }
 
 type Creds struct {
@@ -172,7 +187,7 @@ func main() {
 	).Default(
 		path.Join(workdir, "description.jira.tmpl"),
 	).ExistingFile()
-	epic := kingpin.Arg("epic", "Epic to create issues in.").Required().String()
+	epicName := kingpin.Arg("epic", "Epic to create issues in.").Required().String()
 
 	kingpin.Parse()
 
@@ -200,14 +215,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	haveEpic, err := ensureEpicExists(client, *epic)
-	if err != nil || !haveEpic {
-		fmt.Fprintf(
-			os.Stderr,
-			"Looking for epic %s with result %v.\n",
-			*epic,
-			haveEpic,
-		)
+	epic, err := getEpic(client, *epicName)
+	if err != nil {
+		panic(err)
+	}
+	if epic == nil {
+		fmt.Fprintf(os.Stderr, "Found %s but it was not an epic.\n", *epicName)
 		panic(err)
 	}
 
@@ -216,7 +229,7 @@ func main() {
 		summaryTemplate,
 		descriptionTemplate,
 		tickets,
-		&jira.Epic{Key: *epic},
+		epic,
 	)
 	if err != nil {
 		panic(err)
